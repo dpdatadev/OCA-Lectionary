@@ -1,0 +1,39 @@
+__This project is not yet a GEM. ALPHA development (early iteration)__
+
+```ruby
+require 'lectionary'
+
+scraper = Scrapers::OCALectionary.new
+scraper.load_readings
+scraper.get_page_info
+puts "\n== OCA Daily Scripture Readings ==\n"
+puts "There are #{scraper.daily_reading_count} Scripture Readings.\n"
+puts "Links:\n"
+scraper.daily_reading_links.each do |reading|
+  puts reading.link
+  # If you run the ./scrapeserve executable then you can archive live readings (readings scraped with nokogiri as opposed to db lookup) to markdown
+  # A local directory called ./md will be created with the files inside
+  Scrapers::ServiceUtils.post_to_markdown_service(reading.link)
+end
+puts "Daily Reading Texts:\n"
+scraper.daily_reading_links.each do |reading|
+  puts reading.text
+end
+
+
+#get the whole lectionary cycle for April 2026
+#if verses_only were set to true, then only a collection of the scripture references would be returned
+#in this case (verses_only = false), the actual reading objects with full text from the local database will be returned on screen
+# you can iterate over these Reading objects to direct text wherever it needs to go, including converting to HTML or Markdown for your Rails app etc.,
+scraper.get_bulk_monthly_readings(2026, 4, verses_only = false)
+
+#Single kjv lookup reading
+db = LocalKJV.new
+db.debug = false
+pp db.get_kjv_reading("Romans", "14", "9-18")
+
+# CHRIST IS KING
+
+#contact:
+#dpdatadev@gmail.com
+```
