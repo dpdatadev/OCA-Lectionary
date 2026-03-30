@@ -43,7 +43,7 @@ module Scrapers
     class << self
       def debug_log(message)
         logger = Logger.new($stdout)
-        logger.info(message)
+        logger.debug(message)
       end
 
       def post_to_markdown_service(url_to_convert_to_markdown)
@@ -145,18 +145,10 @@ module Scrapers
     def get_page_info
       scrape_page = download_page
       doc = parse_page(scrape_page)
-
-      # find all links
-      # links = doc.search('a')
-
-      # see how many we're working with
-      # puts "There are #{links.size} links found"
-
-      # title of the document
       puts doc.title
     end
 
-    def log_child_page(reading_link, output_file)
+    def download_child_link_reading_page(reading_link, output_file)
       reading_raw = HTTParty.get(reading_link).body
       reading_doc = Nokogiri::HTML(reading_raw)
       reading_title = reading_doc.search('#main #content section article h2')
@@ -232,8 +224,8 @@ module Scrapers
           reading_list.each do |reading|
             reference = "#{reading.book} #{reading.chapter}:#{reading.verses}"
             puts reference if @debug_is_enabled
-            text = repo.get_kjv_reading(reading.book, reading.chapter, reading.verses) #the verses arent being displayed off the objects correctly
-            offline_readings.push(Bible::Reading.new(reference, text))
+            ref_reading = repo.get_kjv_reading(reading.book, reading.chapter, reading.verses)
+            offline_readings.push(Bible::Reading.new(reference, ref_reading[:text]))
           end
           Scrapers::ServiceUtils.debug_log("Readings from from local database:\n#{offline_readings}")
           return offline_readings

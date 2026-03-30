@@ -14,6 +14,12 @@ class LocalKJV
     @debug = true
   end
 
+  def save_lectionary_reading(book, chapter, verses, text)
+    #TODO
+    #@db[:OCA_Readings].insert(book_id: get_book_id(book), chapter: chapter, verse: verses, text: text)
+    raise NotImplementedError, "This method is not yet implemented. It will save the downloaded reading to the local database for offline access."
+  end
+
   def get_kjv_reading(book, chapter, verses)
     ref_text = "Reading from the Book of #{book}, #{chapter} #{verses}"
     puts "Getting reading for #{book} #{chapter}:#{verses} from local database..."
