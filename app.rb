@@ -17,5 +17,5 @@ end
 
 
 #testing
-scraper.get_bulk_monthly_readings(2024, 6)
+scraper.get_bulk_monthly_readings(2026, 6)
 

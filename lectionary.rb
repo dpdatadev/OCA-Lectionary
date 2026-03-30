@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
+# version, 0.0.1 ALPHA
+
 require 'nokogiri'
 require 'httparty'
 require 'logger'
 
-module Bible 
-  class Reading 
+module Bible
+  class Reference
     attr_reader :book, :chapter, :verses
 
     def initialize(book, chapter, verses)
       @book = book
       @chapter = chapter
-      @verses = verses
+      @verses = verses or [] if nil?
     end
 
     def to_s
@@ -21,30 +23,32 @@ module Bible
 end
 
 module Scrapers
-  class ServiceUtils 
+  class ServiceUtils
     class << self
       def debug_log(message)
         logger = Logger.new($stdout)
         logger.info(message)
       end
+
       def post_to_markdown_service(url_to_convert_to_markdown)
-        HTTParty.post('http://127.0.0.1:7171/md?url=' + url_to_convert_to_markdown)
-        debug_log("Saved contents to MARKDOWN")
+        HTTParty.post("http://127.0.0.1:7171/md?url=#{url_to_convert_to_markdown}")
+        debug_log('Saved contents to MARKDOWN')
       end
     end
   end
+
   # https://www.delftstack.com/howto/ruby/ruby-nil-empty-blank/
-  # 
-  #MONKEY MADNESS
+  #
+  # MONKEY MADNESS
   class Object
     def blank?
       respond_to?(:empty?) ? empty? : !self
     end
   end
 
-  class String 
+  class String
     def substring(word1, word2)
-      self.partition(word1).last.rpartition(word2).first.strip
+      partition(word1).last.rpartition(word2).first.strip
     end
   end
 
@@ -58,11 +62,11 @@ module Scrapers
     # we want to be able to sort an array of elements based on link
     def <=>(other)
       # sort/order by the link
-      self.link <=> other.link
+      link <=> other.link
     end
   end
 
-  class ScriptureReading < LinkElement
+  class ScriptureLink < LinkElement
     def to_s
       "\n::Daily Orthodox Scripture Reading (OCA.org)::#{link}::Scripture Text::#{text}::\n"
     end
@@ -82,21 +86,21 @@ module Scrapers
     end
 
     def load_readings
-      scrape_page = self.download_page
-      doc = self.parse_page(scrape_page)
-      links = self.extract_links(doc)
-      self.create_reading_objects(links)
+      scrape_page = download_page
+      doc = parse_page(scrape_page)
+      links = extract_links(doc)
+      create_reading_objects(links)
     end
 
     def verse_list
       verses = []
-      if @daily_reading_count > 0
+      if @daily_reading_count.positive?
         @daily_reading_links.each do |reading|
           verses.push(reading.text)
         end
         verses
       else
-        puts "No readings to load verses for."
+        puts 'No readings to load verses for.' # rescue, log fatal
       end
     end
 
@@ -114,25 +118,25 @@ module Scrapers
 
     def create_reading_objects(links)
       links.map do |link|
-        s = ScriptureReading.new(link['href'].prepend('https://www.oca.org'), link.text.strip)
+        s = Scrapers::ScriptureLink.new(link['href'].prepend('https://www.oca.org'), link.text.strip)
         pp s.to_s if @debug_is_enabled
         @daily_reading_links.push(s)
         @daily_reading_count += 1
       end
     end
 
-    def get_page_info()
-        scrape_page = self.download_page
-        doc = self.parse_page(scrape_page)
+    def get_page_info
+      scrape_page = download_page
+      doc = parse_page(scrape_page)
 
-        # find all links
-        #links = doc.search('a')
+      # find all links
+      # links = doc.search('a')
 
-        # see how many we're working with
-        #puts "There are #{links.size} links found"
+      # see how many we're working with
+      # puts "There are #{links.size} links found"
 
-        # title of the document
-        puts doc.title
+      # title of the document
+      puts doc.title
     end
 
     def log_child_page(reading_link, output_file)
@@ -149,38 +153,42 @@ module Scrapers
         file << "\n"
         file << text
       end
-      if @debug_is_enabled == 1
-        pp title
-        pp text
-      end
+      return unless @debug_is_enabled == 1
+
+      pp title
+      pp text
     end
+
     def get_bulk_monthly_readings(year, month)
-      readings = []
+      readings_list = []
       request = HTTParty.get("http://127.0.0.1:7171/table?url=https://www.oca.org/readings/monthly/#{year}/#{month}")
-      readings = request.parsed_response["TableText"].split("\n").map(&:strip).reject(&:empty?)
+      # The lectionary readings are stored in an HTML table, our Scraper microservice (Go Colly) extracts tables via the /table handler.
+      readings = request.parsed_response['TableText'].split("\n").map(&:strip).reject(&:empty?)
       readings.each do |reading|
         puts reading
         # parse the book and verse chapters from the string
         # example string: "Acts 2:1-11"
-        if reading =~ /(\w+)\s+(\d+:\d+-\d+)/
-          book = $1
-          #at first the 'verses' also contains the book, we'll strip that out
-          verses = $2
-          chapter = verses.split(':').first
-          #now reassign verses from the initial variable with the chapter part removed
-          verses = verses.split(':').last
-          b = Bible::Reading.new(book, chapter, verses)
-          readings.push(b)
-          puts "Book: #{b.book},  Chapter: #{b.chapter}, Verses: #{b.verses}"
-        end
+        next unless reading =~ /(\w+)\s+(\d+:\d+-\d+)/
+
+        book = ::Regexp.last_match(1)
+        # at first the 'verses' also contains the book, we'll strip that out
+        verses = ::Regexp.last_match(2)
+        chapter = verses.split(':').first
+        # now reassign verses from the initial variable with the chapter part removed
+        verses = verses.split(':').last
+        b = Bible::Reference.new(book, chapter, verses)
+        readings_list.push(b)
+        puts "Book: #{b.book},  Chapter: #{b.chapter}, Verses: #{b.verses}"
       end
+      readings_list
     end
   end
 end
-
-
 
 # notes:
 # todo, handle "skipped verses", multiple separate verse readings from the same book and chapter, e.g. "Matthew 10:32-33, 37-38"
 # create a 'local' option that allows us to extract the neccessary verses from the daily lectionary and look up those verses in our KJV sqlite database
 # or we can also query a monthly lectionary that has been saved and reference from the database (todo, more on this later)
+# use the monthly lectionary feature to pre-build a local database of all the actual readings for fast lookup/reference in the future using SQLITE
+# instead of always scraping the site
+# could REDIS or KAFKA make this even more cool?
