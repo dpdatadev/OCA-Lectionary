@@ -6,6 +6,8 @@ require 'nokogiri'
 require 'httparty'
 require 'logger'
 
+require_relative 'repo'
+
 module Bible
   class Reference
     attr_reader :book, :chapter, :verses
@@ -13,11 +15,25 @@ module Bible
     def initialize(book, chapter, verses)
       @book = book
       @chapter = chapter
-      @verses = verses or [] if nil?
+      @verses = verses
     end
 
     def to_s
       "#{@book} #{@chapter}:#{@verses}"
+    end
+  end
+
+  class Reading 
+    attr_reader :reference, :text
+
+    def initialize(reference, text)
+      @reference = reference
+      @text = text
+    end
+
+    def to_s
+      "#{@reference}
+      #{@text}"
     end
   end
 end
@@ -83,6 +99,7 @@ module Scrapers
       @debug_is_enabled = debug
       @daily_reading_links = []
       @daily_reading_count = 0
+      ensure_website_is_reachable
     end
 
     def load_readings
@@ -159,7 +176,15 @@ module Scrapers
       pp text
     end
 
-    def get_bulk_monthly_readings(year, month)
+    def display_referenced_readings(readings)
+      readings.each do |reading|
+        puts "Reading Reference: #{reading.reference}"
+        puts "\nText: #{reading.text}"
+        puts "\n"
+      end
+    end
+
+    def get_bulk_monthly_readings(year, month, verses_only = true)
       readings_list = []
       request = HTTParty.get("http://127.0.0.1:7171/table?url=https://www.oca.org/readings/monthly/#{year}/#{month}")
       # The lectionary readings are stored in an HTML table, our Scraper microservice (Go Colly) extracts tables via the /table handler.
@@ -169,18 +194,53 @@ module Scrapers
         # parse the book and verse chapters from the string
         # example string: "Acts 2:1-11"
         next unless reading =~ /(\w+)\s+(\d+:\d+-\d+)/
-
-        book = ::Regexp.last_match(1)
+        # Still harder than it should be, wish I could get the BibleBot gem to work
+        book = $1
         # at first the 'verses' also contains the book, we'll strip that out
-        verses = ::Regexp.last_match(2)
+        verses = $2
         chapter = verses.split(':').first
         # now reassign verses from the initial variable with the chapter part removed
         verses = verses.split(':').last
+        puts "Book: #{book},  Chapter: #{chapter}, Verses: #{verses}"
         b = Bible::Reference.new(book, chapter, verses)
         readings_list.push(b)
-        puts "Book: #{b.book},  Chapter: #{b.chapter}, Verses: #{b.verses}"
       end
-      readings_list
+      readings_list if verses_only == true
+      return get_offline_readings(readings_list, "./KJV.db") if verses_only == false
+    end
+    private 
+    def ensure_website_is_reachable
+      begin
+        response = HTTParty.get(@url)
+        unless response.success?
+          raise "Failed to reach #{@url}. HTTP Status: #{response.code}"
+        end
+      rescue StandardError => e
+        puts "Error reaching #{@url}: #{e.message}"
+        exit(1)
+      end
+    end
+    # TODO - this will probably be what we use
+    def get_offline_readings(reading_list = [], db_name = './KJV.db') #todo, should be an easier way for what I'm wanting
+       # make sure a .db file exists on the file system of the current working directory
+        if File.exist?(db_name)
+          Scrapers::ServiceUtils.debug_log('Local database found, querying for readings...')
+          # query the database for the readings for the given month and year
+          # this is just a placeholder, we would need to implement the actual database schema and query logic
+          repo = LocalKJV.new(db_name)
+          offline_readings = []
+          reading_list.each do |reading|
+            reference = "#{reading.book} #{reading.chapter}:#{reading.verses}"
+            puts reference if @debug_is_enabled
+            text = repo.get_kjv_reading(reading.book, reading.chapter, reading.verses) #the verses arent being displayed off the objects correctly
+            offline_readings.push(Bible::Reading.new(reference, text))
+          end
+          Scrapers::ServiceUtils.debug_log("Readings from from local database:\n#{offline_readings}")
+          return offline_readings
+        else
+          Scrapers::ServiceUtils.debug_log('No local database found, please run in online mode first to scrape and save the readings.')
+          return []
+        end
     end
   end
 end
