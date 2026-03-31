@@ -27,6 +27,20 @@ end
 # you can iterate over these Reading objects to direct text wherever it needs to go, including converting to HTML or Markdown for your Rails app etc.,
 scraper.get_bulk_monthly_readings(2026, 4, verses_only = false)
 
+#or..
+#lets write 7 files for each year with each file containing all lectionary readings for that year (months 1 - 12)
+[2020, 2021, 2022, 2023, 2024, 2025, 2026].each do |year|
+  File.open("./readings/oca_lectionary_readings_#{year}.txt", "w") do |file|
+    (1..12).to_a.each do |month|
+      scraper.get_bulk_monthly_readings(year, month, verses_only = false).each do |reading|
+        file.puts reading.to_s
+        file.puts "\n"
+        file.puts "\n"
+      end
+    end
+  end
+end
+
 #Single kjv lookup reading
 db = LocalKJV.new
 db.debug = false

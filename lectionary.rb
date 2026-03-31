@@ -90,9 +90,10 @@ module Scrapers
 
   class OCALectionary
     attr_reader :daily_reading_links, :daily_reading_count
+    attr_writer :dump_daily_readings, :debug_is_enabled
 
     URL = 'https://www.oca.org/readings/daily'
-    DEBUG = true
+    DEBUG = true #hardcoded for testing
 
     def initialize(url = URL, debug = DEBUG)
       @url = url
@@ -107,6 +108,16 @@ module Scrapers
       doc = parse_page(scrape_page)
       links = extract_links(doc)
       create_reading_objects(links)
+
+      if @dump_daily_readings == true
+        Scrapers::ServiceUtils.debug_log("Dumping daily readings to disk:\n")
+        @daily_reading_links.each do |reading|
+          link = reading.link 
+          reading_file = "./readings/#{reading.text.gsub(/\s+/, '_')}.txt"
+          Scrapers::ServiceUtils.debug_log("Downloading reading from #{link} to #{reading_file}") if @debug_is_enabled
+          self.download_single_reading_page(link, reading_file)
+        end
+      end
     end
 
     def verse_list
@@ -148,7 +159,7 @@ module Scrapers
       puts doc.title
     end
 
-    def download_child_link_reading_page(reading_link, output_file)
+    def download_single_reading_page(reading_link, output_file)
       reading_raw = HTTParty.get(reading_link).body
       reading_doc = Nokogiri::HTML(reading_raw)
       reading_title = reading_doc.search('#main #content section article h2')
@@ -162,10 +173,9 @@ module Scrapers
         file << "\n"
         file << text
       end
-      return unless @debug_is_enabled == 1
 
-      pp title
-      pp text
+      pp title if @debug_is_enabled
+      pp text if @debug_is_enabled
     end
 
     def display_referenced_readings(readings)
