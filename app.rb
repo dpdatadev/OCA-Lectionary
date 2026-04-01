@@ -28,19 +28,6 @@ end
 #scraper.get_bulk_monthly_readings(2026, 4, verses_only = true)
 #or..
 
-#write 7 files for each year with each file containing all lectionary readings for that year (months 1 - 12)
-[2020, 2021, 2022, 2023, 2024, 2025, 2026].each do |year|
-  File.open("./readings/oca_lectionary_readings_#{year}.txt", "w") do |file|
-    (1..12).to_a.each do |month|
-      scraper.get_bulk_monthly_readings(year, month, verses_only = false).each do |reading|
-        file.puts reading.to_s
-        file.puts "\n"
-        file.puts "\n"
-      end
-    end
-  end
-end
-
 #testing single kjv lookup reading
 #todo create orthodox lectionary tables in local sqlite database according to website and build with local KJV text, basically an ETL job
 #todo may remove the scrapeserve executable for this project, nokogiri is fast enough at scraping links

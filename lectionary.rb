@@ -186,6 +186,22 @@ module Scrapers
       end
     end
 
+    def get_bulk_annual_readings(years)
+      years.between?(1950, 2050) || raise("Year must be between 1950 and 2050")
+      #write files for # of years with each file containing all lectionary readings for that year (months 1 - 12)
+      years.each do |year|
+        File.open("./readings/oca_lectionary_readings_#{year}.txt", "w") do |file|
+          (1..12).to_a.each do |month|
+            scraper.get_bulk_monthly_readings(year, month, verses_only = false).each do |reading|
+              file.puts reading.to_s #todo, save to db
+              file.puts "\n"
+              file.puts "\n"
+            end
+          end
+        end
+      end
+    end
+
     def get_bulk_monthly_readings(year, month, verses_only = true)
       readings_list = []
       request = HTTParty.get("http://127.0.0.1:7171/table?url=https://www.oca.org/readings/monthly/#{year}/#{month}")
