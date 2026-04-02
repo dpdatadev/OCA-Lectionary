@@ -23,7 +23,7 @@ module Bible
     end
   end
 
-  class Reading 
+  class Reading
     attr_reader :reference, :text
 
     def initialize(reference, text)
@@ -93,7 +93,7 @@ module Scrapers
     attr_writer :dump_daily_readings, :debug_is_enabled
 
     URL = 'https://www.oca.org/readings/daily'
-    DEBUG = true #hardcoded for testing
+    DEBUG = true # hardcoded for testing
 
     def initialize(url = URL, debug = DEBUG)
       @url = url
@@ -109,14 +109,14 @@ module Scrapers
       links = extract_links(doc)
       create_reading_objects(links)
 
-      if @dump_daily_readings == true
-        Scrapers::ServiceUtils.debug_log("Dumping daily readings to disk:\n")
-        @daily_reading_links.each do |reading|
-          link = reading.link 
-          reading_file = "./readings/#{reading.text.gsub(/\s+/, '_')}.txt"
-          Scrapers::ServiceUtils.debug_log("Downloading reading from #{link} to #{reading_file}") if @debug_is_enabled
-          self.download_single_reading_page(link, reading_file)
-        end
+      return unless @dump_daily_readings == true
+
+      Scrapers::ServiceUtils.debug_log("Dumping daily readings to disk:\n")
+      @daily_reading_links.each do |reading|
+        link = reading.link
+        reading_file = "./readings/#{reading.text.gsub(/\s+/, '_')}.txt"
+        Scrapers::ServiceUtils.debug_log("Downloading reading from #{link} to #{reading_file}") if @debug_is_enabled
+        download_single_reading_page(link, reading_file)
       end
     end
 
@@ -187,13 +187,14 @@ module Scrapers
     end
 
     def get_bulk_annual_readings(years)
-      years.between?(1950, 2050) || raise("Year must be between 1950 and 2050")
-      #write files for # of years with each file containing all lectionary readings for that year (months 1 - 12)
+      years.between?(1950, 2050) || raise('Year must be between 1950 and 2050')
+      # write files for # of years with each file containing all lectionary readings for that year (months 1 - 12)
+      # #(O(Y) large linear time complexity, with bottleneck being web service and DB lookup when verses_only = false => O(Y X NETWORK X DB)
       years.each do |year|
-        File.open("./readings/oca_lectionary_readings_#{year}.txt", "w") do |file|
+        File.open("./readings/oca_lectionary_readings_#{year}.txt", 'w') do |file|
           (1..12).to_a.each do |month|
-            scraper.get_bulk_monthly_readings(year, month, verses_only = false).each do |reading|
-              file.puts reading.to_s #todo, save to db
+            scraper.get_bulk_monthly_readings(year, month, false).each do |reading|
+              file.puts reading.to_s # todo, save to db
               file.puts "\n"
               file.puts "\n"
             end
@@ -211,7 +212,11 @@ module Scrapers
         puts reading
         # parse the book and verse chapters from the string
         # example string: "Acts 2:1-11"
+        # todo, we can now query the verseserve API for KJV text of the verses and not have to worry about manually
+        # constructing/parsing the reference here, from the table data. We can just pass it through as is..
+        # curl http://127.0.0.1:7777/verses?ref=Acts%2:1-11
         next unless reading =~ /(\w+)\s+(\d+:\d+-\d+)/
+
         # Still harder than it should be, wish I could get the BibleBot gem to work
         book = $1
         # at first the 'verses' also contains the book, we'll strip that out
@@ -224,41 +229,41 @@ module Scrapers
         readings_list.push(b)
       end
       readings_list if verses_only == true
-      return get_offline_readings(readings_list, "./KJV.db") if verses_only == false
+      get_offline_readings(readings_list, './KJV.db') if verses_only == false
     end
-    private 
+
+    private
+
     def ensure_website_is_reachable
-      begin
-        response = HTTParty.get(@url)
-        unless response.success?
-          raise "Failed to reach #{@url}. HTTP Status: #{response.code}"
-        end
-      rescue StandardError => e
-        puts "Error reaching #{@url}: #{e.message}"
-        exit(1)
-      end
+      response = HTTParty.get(@url)
+      raise "Failed to reach #{@url}. HTTP Status: #{response.code}" unless response.success?
+    rescue StandardError => e
+      puts "Error reaching #{@url}: #{e.message}"
+      exit(1)
     end
-    # TODO - this will probably be what we use
-    def get_offline_readings(reading_list = [], db_name = './KJV.db') #todo, should be an easier way for what I'm wanting
-       # make sure a .db file exists on the file system of the current working directory
-        if File.exist?(db_name)
-          Scrapers::ServiceUtils.debug_log('Local database found, querying for readings...')
-          # query the database for the readings for the given month and year
-          # this is just a placeholder, we would need to implement the actual database schema and query logic
-          repo = LocalKJV.new(db_name)
-          offline_readings = []
-          reading_list.each do |reading|
-            reference = "#{reading.book} #{reading.chapter}:#{reading.verses}"
-            puts reference if @debug_is_enabled
-            ref_reading = repo.get_kjv_reading(reading.book, reading.chapter, reading.verses)
-            offline_readings.push(Bible::Reading.new(reference, ref_reading[:text]))
-          end
-          Scrapers::ServiceUtils.debug_log("Readings from from local database:\n#{offline_readings}")
-          return offline_readings
-        else
-          Scrapers::ServiceUtils.debug_log('No local database found, please run in online mode first to scrape and save the readings.')
-          return []
+
+    # TODO: - this will probably be what we use
+    # todo, should be an easier way for what I'm wanting
+    def get_offline_readings(reading_list = [], db_name = './KJV.db')
+      # make sure a .db file exists on the file system of the current working directory
+      if File.exist?(db_name)
+        Scrapers::ServiceUtils.debug_log('Local database found, querying for readings...')
+        # query the database for the readings for the given month and year
+        # this is just a placeholder, we would need to implement the actual database schema and query logic
+        repo = LocalKJV.new(db_name)
+        offline_readings = []
+        reading_list.each do |reading|
+          reference = "#{reading.book} #{reading.chapter}:#{reading.verses}"
+          puts reference if @debug_is_enabled
+          ref_reading = repo.get_kjv_reading(reading.book, reading.chapter, reading.verses)
+          offline_readings.push(Bible::Reading.new(reference, ref_reading[:text]))
         end
+        Scrapers::ServiceUtils.debug_log("Readings from from local database:\n#{offline_readings}")
+        offline_readings
+      else
+        Scrapers::ServiceUtils.debug_log('No local database found, please run in online mode first to scrape and save the readings.')
+        []
+      end
     end
   end
 end

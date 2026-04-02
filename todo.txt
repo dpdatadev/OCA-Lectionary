@@ -1,3 +1,7 @@
+4-2-2026
+We now have the "verseserve" executable which runs a GoBible service for parsing verses.
+So the BibleBot ruby gem or hacky workarounds are no longer a concern
+
 3-30-2026
 I can't get the Biblebot parse engine in Ruby to work right
 But the GoBible module works very well and we're already querying a Go server..
