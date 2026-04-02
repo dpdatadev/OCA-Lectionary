@@ -1,3 +1,7 @@
+Eastern Orthodox Christians read scriptures on a seasonal (annual and daily) rotation of readings according to the Feasts and Liturgical cycles of the Church. 
+
+This program uses HTTParty, Nokogiri, and SQLITE for super fast lookup and displaying these liturgical readings for the day, or month, or year, in ones application or for exporting to text/md.
+
 __This project is not yet a GEM. ALPHA development (early iteration)__
 
 ```ruby
