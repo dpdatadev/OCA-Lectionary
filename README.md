@@ -56,6 +56,6 @@ pp db.get_kjv_reading("Romans", "14", "9-18")
 #dpdatadev@gmail.com
 ```
 
-This program optionally uses, and can further be enhanced by, utilizing these single file Go servers:
-[VerseServe](https://github.com/dpdatadev/VerseServe)
+This program optionally uses, and can further be enhanced by, utilizing these single file Go servers:  
+[VerseServe](https://github.com/dpdatadev/VerseServe)  
 [ScrapeServe](https://github.com/dpdatadev/ScrapeServe)
