@@ -32,8 +32,8 @@ module Bible
     end
 
     def to_s
-      "#{@reference}
-      #{@text}"
+      "\n#{@reference}
+      \n#{@text}"
     end
   end
 end
@@ -89,26 +89,33 @@ module Scrapers
   end
 
   class OCALectionary
-    attr_reader :daily_reading_links, :daily_reading_count
+    attr_reader :url, :daily_reading_links, :daily_reading_count
     attr_writer :dump_daily_readings, :debug_is_enabled
 
+    # hardcoded for testing
     URL = 'https://www.oca.org/readings/daily'
-    DEBUG = true # hardcoded for testing
+    DEBUG = true 
 
     def initialize(url = URL, debug = DEBUG)
       @url = url
       @debug_is_enabled = debug
       @daily_reading_links = []
       @daily_reading_count = 0
-      ensure_website_is_reachable
+      website_is_reachable?
     end
 
     def load_readings
-      scrape_page = download_page
-      doc = parse_page(scrape_page)
-      links = extract_links(doc)
-      create_reading_objects(links)
-
+      # 4. Create reading/reference objects from the extracted links
+      create_reading_objects(
+        # 3. Use CSS Selectors to find the needed links
+        extract_links(
+          # 2. Load the document with Nokogiri
+          parse_page(
+            # 1. Download the page with HTTParty
+            self.download_page(@url) # Ew, looks like Python code :D
+          )
+        )
+      )
       return unless @dump_daily_readings == true
 
       Scrapers::ServiceUtils.debug_log("Dumping daily readings to disk:\n")
@@ -116,7 +123,7 @@ module Scrapers
         link = reading.link
         reading_file = "./readings/#{reading.text.gsub(/\s+/, '_')}.txt"
         Scrapers::ServiceUtils.debug_log("Downloading reading from #{link} to #{reading_file}") if @debug_is_enabled
-        download_single_reading_page(link, reading_file)
+        self.download_single_reading_page(link, reading_file)
       end
     end
 
@@ -130,10 +137,11 @@ module Scrapers
       else
         puts 'No readings to load verses for.' # rescue, log fatal
       end
+      verses
     end
 
-    def download_page
-      HTTParty.get(@url).body
+    def download_page(url = @url)
+      HTTParty.get(url).body
     end
 
     def parse_page(page_body)
@@ -148,6 +156,7 @@ module Scrapers
       links.map do |link|
         s = Scrapers::ScriptureLink.new(link['href'].prepend('https://www.oca.org'), link.text.strip)
         pp s.to_s if @debug_is_enabled
+        s.with()
         @daily_reading_links.push(s)
         @daily_reading_count += 1
       end
@@ -160,22 +169,20 @@ module Scrapers
     end
 
     def download_single_reading_page(reading_link, output_file)
-      reading_raw = HTTParty.get(reading_link).body
-      reading_doc = Nokogiri::HTML(reading_raw)
+      reading_doc = parse_page(download_page(reading_link))
       reading_title = reading_doc.search('#main #content section article h2')
       reading_text = reading_doc.search('#main #content section article dl dd')
 
       title = reading_title.text.strip
       text = reading_text.text.strip
 
+      reading = Bible::Reading.new(title, text)
+
       File.open(output_file, 'w') do |file|
-        file << title
-        file << "\n"
-        file << text
+        file << reading.to_s
       end
 
-      pp title if @debug_is_enabled
-      pp text if @debug_is_enabled
+      pp reading if @debug_is_enabled
     end
 
     def display_referenced_readings(readings)
@@ -204,20 +211,45 @@ module Scrapers
     end
 
     def get_bulk_monthly_readings(year, month, verses_only = true)
-      readings_list = []
+      #readings = nil
       request = HTTParty.get("http://127.0.0.1:7171/table?url=https://www.oca.org/readings/monthly/#{year}/#{month}")
       # The lectionary readings are stored in an HTML table, our Scraper microservice (Go Colly) extracts tables via the /table handler.
-      readings = request.parsed_response['TableText'].split("\n").map(&:strip).reject(&:empty?)
+      table_readings = request.parsed_response['TableText'].split("\n").map(&:strip).reject(&:empty?)
+
+      readings = self.manually_strip(table_readings) #unless verse_server_is_online
+
+      # Query the verseserve API for KJV text of the verses and not have to worry about manually
+      # constructing/parsing the reference here, from the table data. We can just pass it through as is..
+      # curl http://127.0.0.1:7777/verse?ref=Acts%2:1-11
+      # TODO, invalid reference format for Go Server, must alter the reference so the GoBible parser can work with it
+      
+      #reference_response = HTTParty.get("http://127.0.1:7777/verse?ref=#{readings.join(',')}") #todo, can the server handler parse multiple verses?
+      #pp reference_response if @debug_is_enabled
+      #if reference_response.success?
+        #Scrapers::ServiceUtils.debug_log("Successfully retrieved verse text from VerseServe API for readings: #{readings.join(', ')}")
+        #verse_texts = reference_response.parsed_response['Verses']
+        #readings = readings.zip(verse_texts).map do |ref, text|
+          #Bible::Reading.new(ref, text)
+        #end
+      #else
+        #Scrapers::ServiceUtils.debug_log("Failed to retrieve verse text from VerseServe API for readings: #{readings.join(', ')}. HTTP Status: #{reference_response.code}. Falling back to manual parsing of readings without verse text.")
+        #readings = self.manually_strip(readings)
+      #end
+      
+      return readings if verses_only == true or get_offline_readings(readings, './KJV.db')
+    end
+
+    private
+
+    def manually_strip_readings(readings)
+      reading_list = []
       readings.each do |reading|
         puts reading
         # parse the book and verse chapters from the string
         # example string: "Acts 2:1-11"
-        # todo, we can now query the verseserve API for KJV text of the verses and not have to worry about manually
-        # constructing/parsing the reference here, from the table data. We can just pass it through as is..
-        # curl http://127.0.0.1:7777/verses?ref=Acts%2:1-11
         next unless reading =~ /(\w+)\s+(\d+:\d+-\d+)/
 
-        # Still harder than it should be, wish I could get the BibleBot gem to work
+        # RegExp.last_match(1)
         book = $1
         # at first the 'verses' also contains the book, we'll strip that out
         verses = $2
@@ -226,20 +258,31 @@ module Scrapers
         verses = verses.split(':').last
         puts "Book: #{book},  Chapter: #{chapter}, Verses: #{verses}"
         b = Bible::Reference.new(book, chapter, verses)
-        readings_list.push(b)
+        reading_list.push(b)
       end
-      readings_list if verses_only == true
-      get_offline_readings(readings_list, './KJV.db') if verses_only == false
+      reading_list
     end
 
-    private
-
-    def ensure_website_is_reachable
+    def website_is_reachable  
       response = HTTParty.get(@url)
       raise "Failed to reach #{@url}. HTTP Status: #{response.code}" unless response.success?
     rescue StandardError => e
       puts "Error reaching #{@url}: #{e.message}"
       exit(1)
+    end
+
+    def verse_server_is_online
+      response = HTTParty.get('http://127.0.0.1:7777/health')#TODO
+      if response.success?
+        Scrapers::ServiceUtils.debug_log('VerseServe API is online and reachable.')
+        true
+      else
+        Scrapers::ServiceUtils.debug_log('VerseServe API is not reachable. Falling back to manual parsing of readings without verse text.')
+        false
+      end
+    rescue StandardError => e
+      Scrapers::ServiceUtils.debug_log("Error reaching VerseServe API: #{e.message}. Falling back to manual parsing of readings without verse text.")
+      # `./home/dpauley/Documents/Code/Apps/Ruby/daily_bread/verseserve`
     end
 
     # TODO: - this will probably be what we use

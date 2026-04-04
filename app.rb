@@ -25,7 +25,7 @@ end
 
 #get one lectionary month 
 
-#scraper.get_bulk_monthly_readings(2026, 4, verses_only = true)
+#scraper.get_bulk_monthly_readings(2026, 12, verses_only = false)
 #or..
 
 #testing single kjv lookup reading

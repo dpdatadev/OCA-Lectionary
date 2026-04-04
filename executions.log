@@ -1,8 +1,17 @@
-[=]SCRAPE SERVE[=]SCRAPE BEGIN: 2026-03-30 06:29:46.258140282 -0500 CDT
-[=]SCRAPE SERVE[=]Starting NEW SESSION ( cb59252b-361e-4df4-bc72-c2781518df8a )- CACHE, enabled (YES)::Duration(24 Hours)
-[=]SCRAPE SERVE[=]::SCRAPE SERVE:: => listening for [/links], [/text], [/table], [/md-convert] on :7171
-[=]SCRAPE SERVE[=]listen tcp :7171: bind: address already in use
-[=]SCRAPE SERVE[=]SCRAPE BEGIN: 2026-03-30 06:30:14.491310105 -0500 CDT
-[=]SCRAPE SERVE[=]Starting NEW SESSION ( 88d34060-c302-46cc-a8d1-13de500db424 )- CACHE, enabled (YES)::Duration(24 Hours)
-[=]SCRAPE SERVE[=]::SCRAPE SERVE:: => listening for [/links], [/text], [/table], [/md-convert] on :7171
-[=]SCRAPE SERVE[=]listen tcp :7171: bind: address already in use
+[=]VERSE SERVE[=]SERVER START: 2026-04-03 06:11:36.730034284 -0500 CDT
+[=]VERSE SERVE[=]parsing.. John
+[=]VERSE SERVE[=]parsing BIBLE REF.. John
+[=]VERSE SERVE[=]failed to parse reference: no bibles loaded
+[=]VERSE SERVE[=]parsing.. John 3:16
+[=]VERSE SERVE[=]parsing BIBLE REF.. John 3:16
+[=]VERSE SERVE[=]failed to parse reference: no bibles loaded
+[=]VERSE SERVE[=]parsing.. Genesis 1:1-3
+[=]VERSE SERVE[=]parsing BIBLE REF.. Genesis 1:1-3
+[=]VERSE SERVE[=]failed to parse reference: no bibles loaded
+[=]VERSE SERVE[=]parsing.. Genesis 1:1-3
+[=]VERSE SERVE[=]parsing BIBLE REF.. Genesis 1:1-3
+[=]VERSE SERVE[=]failed to parse reference: no bibles loaded
+[=]VERSE SERVE[=]SERVER START: 2026-04-03 06:26:44.975995934 -0500 CDT
+[=]VERSE SERVE[=]parsing.. Genesis 1:1-3
+[=]VERSE SERVE[=]parsing BIBLE REF.. Genesis 1:1-3
+[=]VERSE SERVE[=]failed to parse reference: no bibles loaded
