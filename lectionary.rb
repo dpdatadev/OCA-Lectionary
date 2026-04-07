@@ -101,7 +101,7 @@ module Scrapers
       @debug_is_enabled = debug
       @daily_reading_links = []
       @daily_reading_count = 0
-      website_is_reachable?
+      website_is_reachable
     end
 
     def load_readings
