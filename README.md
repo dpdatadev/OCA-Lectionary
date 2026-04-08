@@ -24,6 +24,13 @@ scraper.daily_reading_links.each do |reading|
   puts reading.text
 end
 
+#Show troparion for today
+scraper.show_troparia
+
+#Or you can craft a custom date and pass it to the scraper
+scraper.show_troparia(timeframe=Scrapers::Today.days_from(7))
+
+
 
 #get the whole lectionary cycle for April 2026
 #if verses_only were set to true, then only a collection of the scripture references would be returned

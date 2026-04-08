@@ -4,9 +4,17 @@ require_relative 'lectionary'
 
 scraper = Scrapers::OCALectionary.new
 #scraper.debug_is_enabled = true
-scraper.dump_daily_readings = true
+scraper.dump_daily_readings = true #this sets all outputs to be dumped to disk
 scraper.get_page_info
 scraper.load_readings
+
+#Show troparion for today
+scraper.show_troparia
+
+#Or you can craft a custom date and pass it to the scraper
+scraper.show_troparia(timeframe=Scrapers::Today.days_from(7))
+
+
 =begin
 puts "\n== OCA Daily Scripture Readings ==\n"
 puts "There are #{scraper.daily_reading_count} Scripture Readings.\n"

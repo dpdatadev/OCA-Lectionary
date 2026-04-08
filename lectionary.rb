@@ -68,6 +68,26 @@ module Scrapers
     end
   end
 
+  class Today 
+    class << self
+      def year
+        Time.now.year
+      end
+      def month
+        Time.now.month
+      end
+      def day
+        Time.now.day
+      end
+      def days_from(days)
+        (Time.now + (days * 24 * 60 * 60))
+      end
+      def to_s
+        Time.now.strftime("%Y-%m-%d")
+      end
+    end
+  end
+
   LinkElement = Data.define(:link, :text) do
     include Comparable
 
@@ -166,6 +186,19 @@ module Scrapers
       scrape_page = download_page
       doc = parse_page(scrape_page)
       puts doc.title
+    end
+
+    def show_troparia(timeframe=Scrapers::Today)
+      doc = parse_page(download_page(url="https://www.oca.org/saints/troparia/#{timeframe.year}/#{timeframe.month}/#{timeframe.day}/"))
+      troparia = doc.search('article')
+      puts "Troparia:\n#{troparia.text.strip}"
+      if @dump_daily_readings == true
+        Scrapers::ServiceUtils.debug_log("Dumping troparia to disk:\n")
+        File.open("./readings/troparia_#{timeframe.to_s}.txt", 'w+') do |file|
+          file << "Troparia for #{timeframe.to_s}:\n\n"
+          file << troparia.text.strip
+        end
+      end
     end
 
     def download_single_reading_page(reading_link, output_file)
