@@ -263,7 +263,7 @@ module Scrapers
       reading_list
     end
 
-    def website_is_reachable  
+    def website_is_reachable?  
       response = HTTParty.get(@url)
       raise "Failed to reach #{@url}. HTTP Status: #{response.code}" unless response.success?
     rescue StandardError => e
