@@ -3,7 +3,7 @@
 require_relative 'lectionary'
 
 scraper = Scrapers::OCALectionary.new
-#scraper.debug_is_enabled = true
+scraper.debug_is_enabled = true
 scraper.dump_daily_readings = true #this sets all outputs to be dumped to disk
 scraper.get_page_info
 scraper.load_readings
@@ -12,10 +12,10 @@ scraper.load_readings
 scraper.show_troparia
 
 #Or you can craft a custom date and pass it to the scraper
-scraper.show_troparia(timeframe=Scrapers::Today.days_from(7))
+#scraper.show_troparia(timeframe=Scrapers::Today.days_from(7))
 
 
-=begin
+
 puts "\n== OCA Daily Scripture Readings ==\n"
 puts "There are #{scraper.daily_reading_count} Scripture Readings.\n"
 puts "Links:\n"
@@ -23,17 +23,15 @@ scraper.daily_reading_links.each do |reading|
   puts reading.link
   #Scrapers::ServiceUtils.post_to_markdown_service(reading.link)
 end
-=end
-=begin
+
 puts "Daily Reading Texts:\n"
 scraper.daily_reading_links.each do |reading|
   puts reading.text
 end
-=end
+
 
 #get one lectionary month 
-
-#scraper.get_bulk_monthly_readings(2026, 12, verses_only = false)
+#scraper.get_bulk_monthly_readings(2026, 4, verses_only = false)
 #or..
 
 #testing single kjv lookup reading

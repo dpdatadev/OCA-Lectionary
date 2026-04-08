@@ -8,6 +8,21 @@ require 'logger'
 
 require_relative 'repo'
 
+ # https://www.delftstack.com/howto/ruby/ruby-nil-empty-blank/
+  #
+  # MONKEY MADNESS
+  class Object
+    def blank?
+      respond_to?(:empty?) ? empty? : !self
+    end
+  end
+
+  class String
+    def substring(word1, word2)
+      partition(word1).last.rpartition(word2).first.strip
+    end
+  end
+
 module Bible
   class Reference
     attr_reader :book, :chapter, :verses
@@ -50,21 +65,6 @@ module Scrapers
         HTTParty.post("http://127.0.0.1:7171/md?url=#{url_to_convert_to_markdown}")
         debug_log('Saved contents to MARKDOWN')
       end
-    end
-  end
-
-  # https://www.delftstack.com/howto/ruby/ruby-nil-empty-blank/
-  #
-  # MONKEY MADNESS
-  class Object
-    def blank?
-      respond_to?(:empty?) ? empty? : !self
-    end
-  end
-
-  class String
-    def substring(word1, word2)
-      partition(word1).last.rpartition(word2).first.strip
     end
   end
 
@@ -115,6 +115,9 @@ module Scrapers
     # hardcoded for testing
     URL = 'https://www.oca.org/readings/daily'
     DEBUG = true 
+
+    SCRAPE_SERVE_API = "http://127.0.0.1:7171"
+    VERSE_SERVE_API = "http://127.0.0.1:7777"
 
     def initialize(url = URL, debug = DEBUG)
       @url = url
@@ -176,7 +179,6 @@ module Scrapers
       links.map do |link|
         s = Scrapers::ScriptureLink.new(link['href'].prepend('https://www.oca.org'), link.text.strip)
         pp s.to_s if @debug_is_enabled
-        s.with()
         @daily_reading_links.push(s)
         @daily_reading_count += 1
       end
@@ -245,36 +247,54 @@ module Scrapers
 
     def get_bulk_monthly_readings(year, month, verses_only = true)
       #readings = nil
-      request = HTTParty.get("http://127.0.0.1:7171/table?url=https://www.oca.org/readings/monthly/#{year}/#{month}")
+      request = HTTParty.get("#{SCRAPE_SERVE_API}/table?url=https://www.oca.org/readings/monthly/#{Today.year}/#{Today.month}")
       # The lectionary readings are stored in an HTML table, our Scraper microservice (Go Colly) extracts tables via the /table handler.
       table_readings = request.parsed_response['TableText'].split("\n").map(&:strip).reject(&:empty?)
 
       readings = self.manually_strip(table_readings) #unless verse_server_is_online
 
-      # Query the verseserve API for KJV text of the verses and not have to worry about manually
+      # Readings may not be in the format that the verse server expects and the OCA site contains additional metadata that isn't a valid reference (ie, "(Matins)")
+      # So we must pattern match and strip out just the references formatted properly into Bible::Reference objects.
+      # # Query the verseserve API for KJV text of the verses and not have to worry about manually
       # constructing/parsing the reference here, from the table data. We can just pass it through as is..
       # curl http://127.0.0.1:7777/verse?ref=Acts%2:1-11
-      # TODO, invalid reference format for Go Server, must alter the reference so the GoBible parser can work with it
-      
-      #reference_response = HTTParty.get("http://127.0.1:7777/verse?ref=#{readings.join(',')}") #todo, can the server handler parse multiple verses?
-      #pp reference_response if @debug_is_enabled
-      #if reference_response.success?
-        #Scrapers::ServiceUtils.debug_log("Successfully retrieved verse text from VerseServe API for readings: #{readings.join(', ')}")
-        #verse_texts = reference_response.parsed_response['Verses']
-        #readings = readings.zip(verse_texts).map do |ref, text|
-          #Bible::Reading.new(ref, text)
-        #end
-      #else
-        #Scrapers::ServiceUtils.debug_log("Failed to retrieve verse text from VerseServe API for readings: #{readings.join(', ')}. HTTP Status: #{reference_response.code}. Falling back to manual parsing of readings without verse text.")
-        #readings = self.manually_strip(readings)
-      #end
-      
-      return readings if verses_only == true or get_offline_readings(readings, './KJV.db')
+      #(TODO, 4-8-26) => Go server having an issue with something => add new debug statements
+      #[=]VERSE SERVE[=]http: panic serving 127.0.0.1:40102: runtime error: invalid memory address or nil pointer dereference
+      #http: panic serving 127.0.0.1:33998: runtime error: makeslice: len out of range
+      if verse_server_is_online and verses_only == true
+        api_readings = [] #references delivered from Go server
+        finished_readings = [] #collection of Reference objects, properly formatted, to be finally returned
+        readings.each do |reading|
+          parsed_reference = "#{reading.book}%20#{reading.chapter}:#{reading.verses}"
+          puts parsed_reference if @debug_is_enabled
+          reference_response = HTTParty.get("#{VERSE_SERVE_API}/verse?ref=#{parsed_reference}")
+          if reference_response.success?
+            #If successful response, extract the text content from the JSON collection returned
+            verse_text = reference_response.parsed_response['Verses']
+            puts verse_text if @debug_is_enabled
+            api_readings.push(verse_text)
+          end
+          rescue EOFError
+            puts "CANT GET RESPONSE - SKIPPING (check verseserve logs)" 
+          ensure 
+            next
+        end
+        readings.zip(api_readings).map do |ref, text|
+          ref = "no ref::error" if ref.nil?
+          finished_readings.push(Bible::Reference.new(ref, text))
+        rescue ArgumentError
+          #There are objects being returned that don't have valid ref or text elements, could be a result of .zip?
+          #Just ignore them and move on
+        ensure
+          next
+        end
+      end
+      return finished_readings if verses_only == true or get_offline_readings(readings, './KJV.db')
     end
 
     private
 
-    def manually_strip_readings(readings)
+    def manually_strip(readings)
       reading_list = []
       readings.each do |reading|
         puts reading
@@ -305,7 +325,7 @@ module Scrapers
     end
 
     def verse_server_is_online
-      response = HTTParty.get('http://127.0.0.1:7777/health')#TODO
+      response = HTTParty.get("#{VERSE_SERVE_API}/health")#TODO
       if response.success?
         Scrapers::ServiceUtils.debug_log('VerseServe API is online and reachable.')
         true
@@ -343,11 +363,3 @@ module Scrapers
     end
   end
 end
-
-# notes:
-# todo, handle "skipped verses", multiple separate verse readings from the same book and chapter, e.g. "Matthew 10:32-33, 37-38"
-# create a 'local' option that allows us to extract the neccessary verses from the daily lectionary and look up those verses in our KJV sqlite database
-# or we can also query a monthly lectionary that has been saved and reference from the database (todo, more on this later)
-# use the monthly lectionary feature to pre-build a local database of all the actual readings for fast lookup/reference in the future using SQLITE
-# instead of always scraping the site
-# could REDIS or KAFKA make this even more cool?
