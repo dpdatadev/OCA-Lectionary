@@ -117,7 +117,7 @@ module Scrapers
     DEBUG = true 
 
     SCRAPE_SERVE_API = "http://127.0.0.1:7171"
-    VERSE_SERVE_API = "http://127.0.0.1:7777"
+    VERSE_SERVE_API = "http://127.0.0.1:7777" #probably temporary
 
     def initialize(url = URL, debug = DEBUG)
       @url = url
@@ -146,7 +146,7 @@ module Scrapers
         link = reading.link
         reading_file = "./readings/#{reading.text.gsub(/\s+/, '_')}.txt"
         Scrapers::ServiceUtils.debug_log("Downloading reading from #{link} to #{reading_file}") if @debug_is_enabled
-        self.download_single_reading_page(link, reading_file)
+        download_single_reading_page(link, reading_file)
       end
     end
 
