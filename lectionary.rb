@@ -5,6 +5,7 @@
 require 'nokogiri'
 require 'httparty'
 require 'logger'
+require 'colorize'
 
 require_relative 'repo'
 
@@ -34,7 +35,7 @@ module Bible
     end
 
     def to_s
-      "#{@book} #{@chapter}:#{@verses}"
+      "#{@book} #{@chapter}:#{@verses}".colorize(:yellow)
     end
   end
 
@@ -48,7 +49,7 @@ module Bible
 
     def to_s
       "\n#{@reference}
-      \n#{@text}"
+      \n#{@text}".colorize(:green)
     end
   end
 end
@@ -58,7 +59,7 @@ module Scrapers
     class << self
       def debug_log(message)
         logger = Logger.new($stdout)
-        logger.debug(message)
+        logger.debug(message.colorize(:yellow))
       end
 
       def post_to_markdown_service(url_to_convert_to_markdown)
@@ -92,7 +93,7 @@ module Scrapers
     include Comparable
 
     def to_s
-      "\n::Element Link::#{link}::Element Text::#{text}::\n"
+      "\n::Element Link::#{link}::Element Text::#{text}::\n".colorize(:blue)
     end
 
     # we want to be able to sort an array of elements based on link
@@ -104,7 +105,7 @@ module Scrapers
 
   class ScriptureLink < LinkElement
     def to_s
-      "\n::Daily Orthodox Scripture Reading (OCA.org)::#{link}::Scripture Text::#{text}::\n"
+      "\n::Daily Orthodox Scripture Reading (OCA.org)::#{link}::Scripture Text::#{text}::\n".colorize(:green)
     end
   end
 
@@ -158,7 +159,7 @@ module Scrapers
         end
         verses
       else
-        puts 'No readings to load verses for.' # rescue, log fatal
+        puts 'No readings to load verses for.'.colorize(:red) # rescue, log fatal
       end
       verses
     end
@@ -187,13 +188,13 @@ module Scrapers
     def get_page_info
       scrape_page = download_page
       doc = parse_page(scrape_page)
-      puts doc.title
+      puts doc.title.colorize(:blue)
     end
 
     def show_troparia(timeframe=Scrapers::Today)
       doc = parse_page(download_page(url="https://www.oca.org/saints/troparia/#{timeframe.year}/#{timeframe.month}/#{timeframe.day}/"))
       troparia = doc.search('article')
-      puts "Troparia:\n#{troparia.text.strip}"
+      puts "Troparia:\n#{troparia.text.strip}".colorize(:green)
       if @dump_daily_readings == true
         Scrapers::ServiceUtils.debug_log("Dumping troparia to disk:\n")
         File.open("./readings/troparia_#{timeframe.to_s}.txt", 'w+') do |file|
@@ -217,13 +218,13 @@ module Scrapers
         file << reading.to_s
       end
 
-      pp reading if @debug_is_enabled
+      puts reading.to_s if @debug_is_enabled
     end
 
     def display_referenced_readings(readings)
       readings.each do |reading|
-        puts "Reading Reference: #{reading.reference}"
-        puts "\nText: #{reading.text}"
+        puts "Reading Reference: #{reading.reference}".colorize(:blue)
+        puts "\nText: #{reading.text}".colorize(:green)
         puts "\n"
       end
     end
