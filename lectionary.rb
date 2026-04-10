@@ -310,7 +310,7 @@ module Scrapers
         chapter = verses.split(':').first
         # now reassign verses from the initial variable with the chapter part removed
         verses = verses.split(':').last
-        puts "Book: #{book},  Chapter: #{chapter}, Verses: #{verses}"
+        puts "Book: #{book},  Chapter: #{chapter}, Verses: #{verses}".colorize(:blue)
         b = Bible::Reference.new(book, chapter, verses)
         reading_list.push(b)
       end

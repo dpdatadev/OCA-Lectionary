@@ -16,17 +16,17 @@ scraper.show_troparia
 
 
 
-puts "\n== OCA Daily Scripture Readings ==\n"
+puts "\n== OCA Daily Scripture Readings ==\n".colorize(:blue)
 puts "There are #{scraper.daily_reading_count} Scripture Readings.\n"
 puts "Links:\n"
 scraper.daily_reading_links.each do |reading|
-  puts reading.link
+  puts reading.link.colorize(:yellow)
   #Scrapers::ServiceUtils.post_to_markdown_service(reading.link)
 end
 
 puts "Daily Reading Texts:\n"
 scraper.daily_reading_links.each do |reading|
-  puts reading.text
+  puts reading.text.colorize(:yellow)
 end
 
 
