@@ -93,7 +93,7 @@ module Scrapers
     include Comparable
 
     def to_s
-      "\n::Element Link::#{link}::Element Text::#{text}::\n"
+      "::Element Link::#{link}::Element Text::#{text}::"
     end
 
     # we want to be able to sort an array of elements based on link
@@ -105,7 +105,7 @@ module Scrapers
 
   class ScriptureLink < LinkElement
     def to_s
-      "\n::Daily Orthodox Scripture Reading (OCA.org)::#{link}::Scripture Text::#{text}::\n"
+      "::Daily Orthodox Scripture Reading (OCA.org)::#{link}::Scripture Text::#{text}::"
     end
   end
 
